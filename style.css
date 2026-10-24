@@ -32,7 +32,9 @@ body {
 }
 
 .header-app {
-    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+.header-app {
+    /* Gradiente em tons de rosa */
+    background: linear-gradient(135deg, #f472b6 0%, #db2777 100%);
     color: white;
     padding: 2.5rem 1rem;
     text-align: center;
