@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>G&M Planilha - Controle Financeiro</title>a
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Pacifico&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Firebase SDKs (Versão Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Animações da tela de senha (pode ficar aqui ou no style.css) -->
+    <style>
+        @keyframes login-entrar {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .login-card {
+            animation: login-entrar 0.5s ease;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .login-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 30px 40px -10px rgba(0, 0, 0, 0.45) !important;
+        }
+
+        .login-input {
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+        }
+
+        .login-input:hover {
+            border-color: #3b82f6 !important;
+            transform: scale(1.02);
+        }
+
+        .login-input:focus {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+        }
+
+        .login-btn {
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+
+        .login-btn:hover {
+            background: #2563eb !important;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 18px rgba(59, 130, 246, 0.4);
+        }
+
+        .login-btn:active {
+            transform: translateY(0) scale(0.98);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Tela de Login / Senha Mestra -->
+    <div id="login-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; z-index: 9999; display: flex; justify-content: center; align-items: center; padding: 1rem;">
+        <div class="login-card" style="background: white; padding: 2rem; border-radius: 16px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);">
+            <h2 style="font-family: 'Pacifico', cursive; font-size: 2rem; color: #1e293b; margin-bottom: 0.5rem; border: none; padding: 0;">G&M Planilha</h2>
+            <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 1.5rem;">Digite a senha de acesso do casal</p>
+            <input class="login-input" type="password" id="senha-input" placeholder="Digite a senha..." style="width: 100%; padding: 0.9rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; margin-bottom: 1rem; outline: none;">
+            <button class="login-btn" id="btn-entrar" style="width: 100%; padding: 0.9rem; background: #3b82f6; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">Entrar</button>
+            <p id="erro-senha" style="color: #ef4444; font-size: 0.85rem; margin-top: 0.8rem; display: none;">Senha incorreta. Tente novamente!</p>
+        </div>
+    </div>
+
+    <header class="header-app">
+        <div class="header-content">
+            <h1>G&M Planilha</h1>
+            <p>Controle financeiro inteligente</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Cards de Resumo no Topo -->
+        <div class="cards-row">
+            <div class="kpi-card card-blue">
+                <div class="kpi-header">
+                    <h3>Total de Gastos</h3>
+                    <span class="kpi-icon">📉</span>
+                </div>
+                <p id="kpi-total">R$ 0,00</p>
+            </div>
+            
+            <div class="kpi-card card-green">
+                <div class="kpi-header">
+                    <h3>Renda do Mês</h3>
+                    <span class="kpi-icon">💰</span>
+                </div>
+                <div class="input-renda-wrapper">
+                    <span>R$</span>
+                    <input type="text" id="input-renda" value="0,00" placeholder="0,00">
+                </div>
+            </div>
+
+            <div class="kpi-card card-purple" id="card-saldo-container">
+                <div class="kpi-header">
+                    <h3>Saldo Restante</h3>
+                    <span class="kpi-icon">✨</span>
+                </div>
+                <p id="kpi-saldo">R$ 0,00</p>
+            </div>
+
+            <div class="kpi-card card-orange">
+                <div class="kpi-header">
+                    <h3>Maior Parcela</h3>
+                    <span class="kpi-icon">📊</span>
+                </div>
+                <p id="kpi-maior">R$ 0,00</p>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div class="actions-col">
+                <div class="box">
+                    <h2>Adicionar Novo Gasto</h2>
+                    
+                    <div class="form-group">
+                        <label>Descrição</label>
+                        <input type="text" id="desc" placeholder="Ex: Apartamento, Nubank...">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Categoria</label>
+                        <select id="categoria">
+                            <option value="Moradia">🏠 Moradia</option>
+                            <option value="Transporte">🚗 Transporte</option>
+                            <option value="Alimentação">🛒 Alimentação</option>
+                            <option value="Lazer">🎉 Lazer</option>
+                            <option value="Contas">💡 Contas Básicas</option>
+                            <option value="Outros" selected>📦 Outros</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Valor Total (R$)</label>
+                            <input type="text" id="valor" placeholder="Opcional">
+                        </div>
+                        <div class="form-group">
+                            <label>Parcela (R$)</label>
+                            <input type="text" id="valor-parcela" placeholder="Ex: 945,00">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Qtd Parcelas</label>
+                            <input type="number" id="parcelas" value="1" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Mês Inicial</label>
+                            <input type="month" id="data-inicio" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Mês Final (Automático)</label>
+                            <input type="month" id="data-final" disabled>
+                        </div>
+                        <div class="form-group">
+                            <label>Cor na Fatura</label>
+                            <input type="color" id="cor-gasto" value="#3b82f6">
+                        </div>
+                    </div>
+                    
+                    <button id="add-btn" class="btn-success">Registrar Gasto</button>
+                </div>
+
+                <div class="box">
+                    <h2>Filtro de Mês</h2>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Mês de Consulta</label>
+                        <input type="month" id="mes-filtro" class="input-filter">
+                    </div>
+                </div>
+            </div>
+
+            <div class="data-col">
+                <!-- Gráfico de Rosca (Distribuição do Mês) -->
+                <div class="box">
+                    <h2>Distribuição dos Gastos (Mês Atual)</h2>
+                    <div class="chart-container">
+                        <canvas id="graficoPizza"></canvas>
+                    </div>
+                </div>
+
+                <!-- Gráfico de Barras (Evolução Anual) -->
+                <div class="box">
+                    <h2>Evolução dos Gastos por Ano</h2>
+                    <div class="chart-container">
+                        <canvas id="graficoBarrasAnual"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Lista de Detalhes -->
+                <div class="box">
+                    <h2>Detalhes das Parcelas do Mês</h2>
+                    <ul id="lista-despesas">
+                        <!-- Inserido via JS -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sistema de Senha Mestra -->
+    <script>
+        const SENHA_MESTRA = "1234"; // Altere aqui para a senha desejada
+
+        window.addEventListener('DOMContentLoaded', () => {
+            // Se já digitou a senha nesta sessão, oculta o modal
+            if (sessionStorage.getItem('gm_autenticado') === 'true') {
+                document.getElementById('login-modal').style.display = 'none';
+            }
+
+            const btnEntrar = document.getElementById('btn-entrar');
+            const inputSenha = document.getElementById('senha-input');
+
+            if (btnEntrar) {
+                btnEntrar.addEventListener('click', validarSenha);
+            }
+            if (inputSenha) {
+                inputSenha.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') validarSenha();
+                });
+            }
+        });
+
+        function validarSenha() {
+            const digitada = document.getElementById('senha-input').value;
+            if (digitada === SENHA_MESTRA) {
+                sessionStorage.setItem('gm_autenticado', 'true');
+                document.getElementById('login-modal').style.display = 'none';
+            } else {
+                const erro = document.getElementById('erro-senha');
+                erro.style.display = 'block';
+                document.getElementById('senha-input').value = '';
+            }
+        }
+    </script>
+
+    <!-- Aplicação principal -->
+    <script>
+        // Configuração do Firebase (declarada uma única vez)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBE8Z0aYK0BflL8bvCbDYXlqytehayeiWI",
+            authDomain: "gmplanilhas-185ff.firebaseapp.com",
+            projectId: "gmplanilhas-185ff",
+            storageBucket: "gmplanilhas-185ff.firebasestorage.app",
+            messagingSenderId: "578341373829",
+            appId: "1:578341373829:web:ff2fc4d136e6f5934ee6ec",
+            measurementId: "G-91K1CYVV00"
+        };
+
+        // Inicializa o Firebase e o Firestore
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let meuGrafico = null;
+        let meuGraficoBarras = null;
+        let despesas = [];
+        let rendasMensais = {};
+
+        function formatarMoeda(valor) {
+            return valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function converterParaNumero(valorString) {
+            if (!valorString) return 0;
+            let limpo = String(valorString).replace(/[^\d,]/g, '');
+            limpo = limpo.replace(',', '.');
+            return parseFloat(limpo) || 0;
+        }
+
+        const inputTotal = document.getElementById('valor');
+        const inputParcela = document.getElementById('valor-parcela');
+        const inputQtd = document.getElementById('parcelas');
+        const inputRenda = document.getElementById('input-renda');
+
+        inputTotal.addEventListener('blur', () => {
+            const total = converterParaNumero(inputTotal.value);
+            const qtd = parseInt(inputQtd.value) || 1;
+            if (total > 0) {
+                inputTotal.value = formatarMoeda(total);
+                inputParcela.value = formatarMoeda(total / qtd);
+            }
+        });
+
+        inputParcela.addEventListener('blur', () => {
+            const parcela = converterParaNumero(inputParcela.value);
+            const qtd = parseInt(inputQtd.value) || 1;
+            if (parcela > 0) {
+                inputParcela.value = formatarMoeda(parcela);
+                inputTotal.value = formatarMoeda(parcela * qtd);
+            }
+        });
+
+        inputQtd.addEventListener('input', () => {
+            const total = converterParaNumero(inputTotal.value);
+            const qtd = parseInt(inputQtd.value) || 1;
+            if (total > 0) {
+                inputParcela.value = formatarMoeda(total / qtd);
+            }
+            atualizarMesFinal();
+        });
+
+        inputRenda.addEventListener('blur', () => {
+            const mesFiltro = document.getElementById('mes-filtro').value;
+            const valorRenda = converterParaNumero(inputRenda.value);
+            inputRenda.value = formatarMoeda(valorRenda);
+            
+            rendasMensais[mesFiltro] = valorRenda;
+            salvarDadosNuvem(); // Salva a renda direto no Firebase
+        });
+
+        function atualizarMesFinal() {
+            const parcelasInput = document.getElementById('parcelas').value;
+            const dataInicioInput = document.getElementById('data-inicio').value;
+            const dataFinalInput = document.getElementById('data-final');
+
+            if (!dataInicioInput || !parcelasInput) return;
+
+            const parcelas = parseInt(parcelasInput);
+            if (parcelas < 1) return;
+
+            let [ano, mes] = dataInicioInput.split('-');
+            ano = parseInt(ano);
+            mes = parseInt(mes);
+
+            let mesesAdicionais = parcelas - 1;
+            let mesFinal = mes + mesesAdicionais;
+            let anoFinal = ano;
+
+            while (mesFinal > 12) {
+                mesFinal -= 12;
+                anoFinal++;
+            }
+
+            const mesStr = mesFinal.toString().padStart(2, '0');
+            dataFinalInput.value = `${anoFinal}-${mesStr}`;
+        }
+
+        document.getElementById('data-inicio').addEventListener('input', atualizarMesFinal);
+        document.getElementById('mes-filtro').addEventListener('input', carregarDespesas);
+
+        window.onload = () => {
+            const hoje = new Date();
+            const mesAtual = `${hoje.getFullYear()}-${(hoje.getMonth()+1).toString().padStart(2, '0')}`;
+            document.getElementById('data-inicio').value = mesAtual;
+            document.getElementById('mes-filtro').value = mesAtual;
+            atualizarMesFinal();
+            carregarDadosNuvem(); // Puxa os dados direto do Firebase ao abrir
+        };
+
+        // Funções de sincronização com a nuvem do Firebase
+        function salvarDadosNuvem() {
+            db.collection("gm_planilha").doc("dados_gerais").set({
+                despesas: despesas,
+                rendasMensais: rendasMensais
+            }).then(() => {
+                carregarDespesas();
+            }).catch((error) => {
+                console.error("Erro ao sincronizar com o Firebase: ", error);
+            });
+        }
+
+        function carregarDadosNuvem() {
+            db.collection("gm_planilha").doc("dados_gerais").get().then((doc) => {
+                if (doc.exists) {
+                    const dados = doc.data();
+                    despesas = dados.despesas || [];
+                    rendasMensais = dados.rendasMensais || {};
+                } else {
+                    despesas = [];
+                    rendasMensais = {};
+                }
+                carregarDespesas();
+            }).catch((error) => {
+                console.error("Erro ao carregar do Firebase: ", error);
+                carregarDespesas();
+            });
+        }
+
+        document.getElementById('add-btn').addEventListener('click', () => {
+            const desc = document.getElementById('desc').value;
+            const categoria = document.getElementById('categoria').value;
+            const parcelas = parseInt(document.getElementById('parcelas').value);
+            const dataInicio = document.getElementById('data-inicio').value;
+            const valorParcela = converterParaNumero(inputParcela.value);
+            const corGasto = document.getElementById('cor-gasto').value;
+
+            if(!desc || valorParcela <= 0 || !dataInicio || parcelas < 1) {
+                return alert('Preencha os campos de descrição, valor e data corretamente!');
+            }
+
+            let [ano, mes] = dataInicio.split('-');
+            mes = parseInt(mes);
+            ano = parseInt(ano);
+
+            const idCompra = Date.now().toString();
+
+            for (let i = 0; i < parcelas; i++) {
+                let mesAtual = mes + i;
+                let anoAtual = ano;
+                
+                while (mesAtual > 12) {
+                    mesAtual -= 12;
+                    anoAtual++;
+                }
+
+                const mesStr = mesAtual.toString().padStart(2, '0');
+                const mesAno = `${anoAtual}-${mesStr}`;
+                const sufixoParcela = parcelas > 1 ? ` (${i + 1}/${parcelas})` : '';
+
+                despesas.push({
+                    id: idCompra,
+                    desc: desc + sufixoParcela,
+                    categoria: categoria,
+                    valor: valorParcela,
+                    mesAno: mesAno,
+                    nomeOriginal: desc,
+                    cor: corGasto
+                });
+            }
+            
+            document.getElementById('desc').value = '';
+            document.getElementById('valor').value = '';
+            document.getElementById('valor-parcela').value = '';
+            document.getElementById('parcelas').value = '1';
+            atualizarMesFinal(); 
+            salvarDadosNuvem(); // Salva e sincroniza automaticamente na nuvem
+        });
+
+        function apagarItem(id, nomeProduto) {
+            if(confirm(`Tem certeza que deseja apagar "${nomeProduto}" e TODAS as suas parcelas?`)) {
+                despesas = despesas.filter(d => d.id !== id);
+                salvarDadosNuvem();
+            }
+        }
+
+        function carregarDespesas() {
+            const mesFiltro = document.getElementById('mes-filtro').value;
+            const rendaAtual = rendasMensais[mesFiltro] || 0;
+            inputRenda.value = formatarMoeda(rendaAtual);
+
+            const despesasFiltradas = despesas.filter(d => d.mesAno === mesFiltro);
+            
+            const lista = document.getElementById('lista-despesas');
+            lista.innerHTML = '';
+            
+            let total = 0;
+            let maiorGasto = 0;
+            const labelsGrafico = [];
+            const dadosGrafico = [];
+            const coresGrafico = [];
+            const infoGrafico = [];
+
+            despesasFiltradas.forEach((d) => {
+                const li = document.createElement('li');
+                
+                li.innerHTML = `
+                    <div class="item-info">
+                        <div class="item-title-row">
+                            <span class="item-dot" style="background-color: ${d.cor || '#3b82f6'};"></span>
+                            <span class="item-desc">${d.desc}</span>
+                        </div>
+                        <span class="badge-cat">${d.categoria || 'Outros'}</span>
+                    </div>
+                    <div class="item-actions">
+                        <span class="item-val">R$ ${formatarMoeda(d.valor)}</span>
+                        <button class="btn-delete" title="Apagar Gasto" onclick="apagarItem('${d.id}', '${d.nomeOriginal}')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                lista.appendChild(li);
+
+                total += d.valor;
+                if (d.valor > maiorGasto) maiorGasto = d.valor;
+                
+                const parcelasDaCompra = despesas.filter(x => x.id === d.id);
+                const info = {
+                    total: parcelasDaCompra.length,
+                    pagas: parcelasDaCompra.filter(x => x.mesAno < mesFiltro).length,
+                    faltam: parcelasDaCompra.filter(x => x.mesAno > mesFiltro).length
+                };
+
+                const index = labelsGrafico.findIndex(label => label === d.nomeOriginal);
+                if(index === -1) {
+                    labelsGrafico.push(d.nomeOriginal);
+                    dadosGrafico.push(d.valor);
+                    coresGrafico.push(d.cor || '#3b82f6');
+                    infoGrafico.push(info);
+                } else {
+                    dadosGrafico[index] += d.valor;
+                    infoGrafico[index].total += info.total;
+                    infoGrafico[index].pagas += info.pagas;
+                    infoGrafico[index].faltam += info.faltam;
+                }
+            });
+
+            const saldoRestante = rendaAtual - total;
+            const elSaldo = document.getElementById('kpi-saldo');
+            elSaldo.innerText = `R$ ${formatarMoeda(saldoRestante)}`;
+            
+            const cardSaldo = document.getElementById('card-saldo-container');
+            if (saldoRestante < 0) {
+                cardSaldo.classList.add('card-danger');
+                elSaldo.style.color = '#ef4444';
+            } else {
+                cardSaldo.classList.remove('card-danger');
+                elSaldo.style.color = '#0f172a';
+            }
+
+            document.getElementById('kpi-total').innerText = `R$ ${formatarMoeda(total)}`;
+            document.getElementById('kpi-maior').innerText = `R$ ${formatarMoeda(maiorGasto)}`;
+
+            if(despesasFiltradas.length === 0) {
+                lista.innerHTML = '<li class="empty-list">Nenhum gasto registrado para este mês.</li>';
+            }
+
+            atualizarGrafico(labelsGrafico, dadosGrafico, coresGrafico, infoGrafico);
+            atualizarGraficoBarrasAnual();
+        }
+
+        function atualizarGrafico(labels, data, cores, info) {
+            const ctx = document.getElementById('graficoPizza').getContext('2d');
+            if(meuGrafico) meuGrafico.destroy(); 
+
+            if(data.length === 0) return;
+
+            meuGrafico = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: cores,
+                        borderWidth: 2,
+                        borderColor: '#ffffff',
+                        hoverOffset: 18
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: { padding: 20 },
+                    plugins: {
+                        legend: { 
+                            position: 'right',
+                            labels: {
+                                boxWidth: 12,
+                                font: { family: 'Inter', size: 12 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const i = context.dataIndex;
+                                    const valor = context.parsed;
+                                    const p = info[i];
+                                    const linhas = [`Valor no mês: R$ ${formatarMoeda(valor)}`];
+
+                                    if (p.total <= 1) {
+                                        linhas.push('Pagamento único');
+                                    } else {
+                                        linhas.push(`Parcelas pagas: ${p.pagas} de ${p.total}`);
+                                        linhas.push(`Parcelas que faltam: ${p.faltam}`);
+                                    }
+                                    return linhas;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function atualizarGraficoBarrasAnual() {
+            const ctx = document.getElementById('graficoBarrasAnual').getContext('2d');
+            if(meuGraficoBarras) meuGraficoBarras.destroy();
+
+            const gastosPorAno = {};
+            despesas.forEach(d => {
+                const ano = d.mesAno.split('-')[0];
+                gastosPorAno[ano] = (gastosPorAno[ano] || 0) + d.valor;
+            });
+
+            const anosOrdenados = Object.keys(gastosPorAno).sort();
+            const valoresAnuais = anosOrdenados.map(ano => gastosPorAno[ano]);
+
+            if (anosOrdenados.length === 0) return;
+
+            meuGraficoBarras = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: anosOrdenados,
+                    datasets: [{
+                        label: 'Total Gasto no Ano (R$)',
+                        data: valoresAnuais,
+                        backgroundColor: '#06b6d4',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f1f5f9' }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
