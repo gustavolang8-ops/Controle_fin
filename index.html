@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MR Planilha - Controle Financeiro</title>a
+    <title>MR Planilha - Controle Financeiro</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,13 +11,9 @@
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- Firebase SDKs (Versão Compat) -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-
     <link rel="stylesheet" href="style.css">
 
-    <!-- Animações da tela de senha (pode ficar aqui ou no style.css) -->
+    <!-- Animações da tela de senha -->
     <style>
         @keyframes login-entrar {
             from { opacity: 0; transform: translateY(20px); }
@@ -222,7 +218,6 @@
         const SENHA_MESTRA = "1234"; // Altere aqui para a senha desejada
 
         window.addEventListener('DOMContentLoaded', () => {
-            // Se já digitou a senha nesta sessão, oculta o modal
             if (sessionStorage.getItem('gm_autenticado') === 'true') {
                 document.getElementById('login-modal').style.display = 'none';
             }
@@ -255,21 +250,6 @@
 
     <!-- Aplicação principal -->
     <script>
-        // Configuração do Firebase (declarada uma única vez)
-        const firebaseConfig = {
-            apiKey: "AIzaSyBE8Z0aYK0BflL8bvCbDYXlqytehayeiWI",
-            authDomain: "gmplanilhas-185ff.firebaseapp.com",
-            projectId: "gmplanilhas-185ff",
-            storageBucket: "gmplanilhas-185ff.firebasestorage.app",
-            messagingSenderId: "578341373829",
-            appId: "1:578341373829:web:ff2fc4d136e6f5934ee6ec",
-            measurementId: "G-91K1CYVV00"
-        };
-
-        // Inicializa o Firebase e o Firestore
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-
         let meuGrafico = null;
         let meuGraficoBarras = null;
         let despesas = [];
@@ -324,7 +304,7 @@
             inputRenda.value = formatarMoeda(valorRenda);
             
             rendasMensais[mesFiltro] = valorRenda;
-            salvarDadosNuvem(); // Salva a renda direto no Firebase
+            salvarDadosLocal();
         });
 
         function atualizarMesFinal() {
@@ -363,36 +343,30 @@
             document.getElementById('data-inicio').value = mesAtual;
             document.getElementById('mes-filtro').value = mesAtual;
             atualizarMesFinal();
-            carregarDadosNuvem(); // Puxa os dados direto do Firebase ao abrir
+            carregarDadosLocal(); 
         };
 
-        // Funções de sincronização com a nuvem do Firebase
-        function salvarDadosNuvem() {
-            db.collection("gm_planilha").doc("dados_gerais").set({
+        // Funções de salvamento e carregamento local (localStorage)
+        function salvarDadosLocal() {
+            const dados = {
                 despesas: despesas,
                 rendasMensais: rendasMensais
-            }).then(() => {
-                carregarDespesas();
-            }).catch((error) => {
-                console.error("Erro ao sincronizar com o Firebase: ", error);
-            });
+            };
+            localStorage.setItem('gm_planilha_dados', JSON.stringify(dados));
+            carregarDespesas();
         }
 
-        function carregarDadosNuvem() {
-            db.collection("gm_planilha").doc("dados_gerais").get().then((doc) => {
-                if (doc.exists) {
-                    const dados = doc.data();
-                    despesas = dados.despesas || [];
-                    rendasMensais = dados.rendasMensais || {};
-                } else {
-                    despesas = [];
-                    rendasMensais = {};
-                }
-                carregarDespesas();
-            }).catch((error) => {
-                console.error("Erro ao carregar do Firebase: ", error);
-                carregarDespesas();
-            });
+        function carregarDadosLocal() {
+            const dadosSalvos = localStorage.getItem('gm_planilha_dados');
+            if (dadosSalvos) {
+                const dados = JSON.parse(dadosSalvos);
+                despesas = dados.despesas || [];
+                rendasMensais = dados.rendasMensais || {};
+            } else {
+                despesas = [];
+                rendasMensais = {};
+            }
+            carregarDespesas();
         }
 
         document.getElementById('add-btn').addEventListener('click', () => {
@@ -442,13 +416,13 @@
             document.getElementById('valor-parcela').value = '';
             document.getElementById('parcelas').value = '1';
             atualizarMesFinal(); 
-            salvarDadosNuvem(); // Salva e sincroniza automaticamente na nuvem
+            salvarDadosLocal();
         });
 
         function apagarItem(id, nomeProduto) {
             if(confirm(`Tem certeza que deseja apagar "${nomeProduto}" e TODAS as suas parcelas?`)) {
                 despesas = despesas.filter(d => d.id !== id);
-                salvarDadosNuvem();
+                salvarDadosLocal();
             }
         }
 
